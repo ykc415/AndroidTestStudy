@@ -42,6 +42,11 @@ import org.junit.Assert.*
 class ExampleUnitTest {
   @Test
   fun addition_isCorrect() {
-    assertEquals(4, 2 + 2)
+    val test = " "
+    val test1 = ""
+    val test2: String? = null
+    println(test.isBlank())
+    println(test1.isBlank())
+    println(test2?.isBlank())
   }
 }

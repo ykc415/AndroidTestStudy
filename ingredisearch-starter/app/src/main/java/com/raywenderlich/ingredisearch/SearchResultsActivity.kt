@@ -39,93 +39,89 @@ import kotlinx.android.synthetic.main.activity_list.*
 import kotlinx.android.synthetic.main.view_error.*
 import kotlinx.android.synthetic.main.view_loading.*
 import kotlinx.android.synthetic.main.view_noresults.*
+import java.util.zip.GZIPOutputStream
 
 fun Context.searchResultsIntent(query: String): Intent {
-  return Intent(this, SearchResultsActivity::class.java).apply {
-    putExtra(EXTRA_QUERY, query)
-  }
+    return Intent(this, SearchResultsActivity::class.java).apply {
+        putExtra(EXTRA_QUERY, query)
+    }
 }
 
 private const val EXTRA_QUERY = "EXTRA_QUERY"
 
-class SearchResultsActivity : ChildActivity() {
+class SearchResultsActivity : ChildActivity(), SearchResultsPresenter.View {
 
-  private val repository: RecipeRepository by lazy {RecipeRepository.getRepository(this)}
+    private val presenter: SearchResultsPresenter by lazy {
+        SearchResultsPresenter(RecipeRepositoryImpl.getRepository(this))
+    }
 
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    setContentView(R.layout.activity_list)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_list)
 
-    val query = intent.getStringExtra(EXTRA_QUERY)
-    supportActionBar?.subtitle = query
+        val query = intent.getStringExtra(EXTRA_QUERY)
+        supportActionBar?.subtitle = query
 
-    search(query)
+        presenter.attachView(this)
 
-    retry.setOnClickListener { search(query) }
-  }
+        presenter.search(query)
 
-  private fun search(query: String) {
-    showLoadingView()
-    repository.getRecipes(query, object : RecipeRepository.RepositoryCallback<List<Recipe>> {
-      override fun onSuccess(recipes: List<Recipe>?) {
-        if (recipes != null && recipes.isNotEmpty()) {
-          showRecipes(recipes)
-        } else {
-          showEmptyRecipes()
+        retry.setOnClickListener {
+            presenter.search(query)
         }
-      }
+    }
 
-      override fun onError() {
-        showErrorView()
-      }
-    })
-  }
+    override fun showLoading() {
+        loadingContainer.visibility = View.VISIBLE
+        errorContainer.visibility = View.GONE
+        list.visibility = View.GONE
+        noresultsContainer.visibility = View.GONE
+    }
 
-  private fun showEmptyRecipes() {
-    loadingContainer.visibility = View.GONE
-    errorContainer.visibility = View.GONE
-    list.visibility = View.VISIBLE
-    noresultsContainer.visibility = View.VISIBLE
-  }
+    override fun showError() {
+        loadingContainer.visibility = View.GONE
+        errorContainer.visibility = View.VISIBLE
+        list.visibility = View.GONE
+        noresultsContainer.visibility = View.GONE
+    }
 
-  private fun showRecipes(recipes: List<Recipe>) {
-    loadingContainer.visibility = View.GONE
-    errorContainer.visibility = View.GONE
-    list.visibility = View.VISIBLE
-    noresultsContainer.visibility = View.GONE
+    override fun refreshFavoriteStatus(recipeIndex: Int) {
+        list.adapter.notifyItemChanged(recipeIndex)
+    }
 
-    list.layoutManager = LinearLayoutManager(this)
-    list.adapter = RecipeAdapter(recipes, object : RecipeAdapter.Listener {
-      override fun onClickItem(item: Recipe) {
-        startActivity(recipeIntent(item.sourceUrl))
-      }
+    override fun showEmptyRecipes() {
+        loadingContainer.visibility = View.GONE
+        errorContainer.visibility = View.GONE
+        list.visibility = View.VISIBLE
+        noresultsContainer.visibility = View.VISIBLE
+    }
 
-      override fun onAddFavorite(item: Recipe) {
-        item.isFavorited = true
-        repository.addFavorite(item)
-        list.adapter.notifyItemChanged(recipes.indexOf(item))
-      }
+    override fun showRecipes(recipes: List<Recipe>) {
+        loadingContainer.visibility = View.GONE
+        errorContainer.visibility = View.GONE
+        list.visibility = View.VISIBLE
+        noresultsContainer.visibility = View.GONE
 
-      override fun onRemoveFavorite(item: Recipe) {
-        repository.removeFavorite(item)
-        item.isFavorited = false
-        list.adapter.notifyItemChanged(recipes.indexOf(item))
-      }
+        setupRecipeList(recipes)
+    }
 
-    })
-  }
+    private fun setupRecipeList(recipes: List<Recipe>) {
+        list.layoutManager = LinearLayoutManager(this)
+        list.adapter = RecipeAdapter(recipes, object : RecipeAdapter.Listener {
+            override fun onClickItem(recipe: Recipe) {
+                startActivity(recipeIntent(recipe.sourceUrl))
+            }
 
-  private fun showErrorView() {
-    loadingContainer.visibility = View.GONE
-    errorContainer.visibility = View.VISIBLE
-    list.visibility = View.GONE
-    noresultsContainer.visibility = View.GONE
-  }
+            override fun onAddFavorite(recipe: Recipe) {
+                presenter.addFavorite(recipe)
+            }
 
-  private fun showLoadingView() {
-    loadingContainer.visibility = View.VISIBLE
-    errorContainer.visibility = View.GONE
-    list.visibility = View.GONE
-    noresultsContainer.visibility = View.GONE
-  }
+            override fun onRemoveFavorite(recipe: Recipe) {
+                presenter.removeFavorite(recipe)
+            }
+
+        })
+    }
+
+
 }

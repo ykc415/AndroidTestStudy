@@ -40,7 +40,7 @@ import kotlinx.android.synthetic.main.view_noresults.*
 
 class FavoritesActivity : ChildActivity() {
 
-  private val repository: RecipeRepository by lazy {RecipeRepository.getRepository(this)}
+  private val repository: RecipeRepository by lazy {RecipeRepositoryImpl.getRepository(this)}
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
